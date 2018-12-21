@@ -5,9 +5,11 @@
 #include <Joystick.h>
 
 #define TCAADDR 0x70
-#define DISP_INFO 1 // FIXXXME change for final hardware
-#define DISP_ENC1 0
+#define DISP_INFO 0 // FIXXXME change for final hardware
+#define DISP_ENC1 1
 #define DISP_ENC2 2
+#define DISP_BUT1 3
+#define DISP_BUT2 4
 
 #define MCP_ADDR_BUTTON1 1 //A0 5v, A1,A2 GND
 //#define MCP_ADDR_BUTTON2 2 //A0 GND, A1 5V, A2 GND  
@@ -42,7 +44,8 @@ struct EncDisplay
 
 EncDisplay encDisp[] = {
   {DISP_ENC1,{" enc1.1   ","   enc1.2 "," enc1.3   ","   enc1.4 "," ENC1.1   ","   ENC1.2 "," ENC1.3   ","   ENC1.4 "},},
-  {DISP_ENC2,{" enc2.1   ","   enc2.2 "," enc2.3   ","   enc2.4 "," ENC2.1   ","   ENC2.2 "," ENC2.3   ","   ENC2.4 "},}
+  {DISP_ENC2,{" enc2.1   ","   enc2.2 "," enc2.3   ","   enc2.4 "," ENC2.1   ","   ENC2.2 "," ENC2.3   ","   ENC2.4 "},},
+  {DISP_BUT1,{" enc3.1   ","   enc3.2 "," enc3.3   ","   enc3.4 "," ENC2.1   ","   ENC2.2 "," ENC2.3   ","   ENC2.4 "},}
 };
 
 // array of button labels, first 12 are normal, 2nd 12 are shifted
@@ -122,9 +125,9 @@ const int encPins0[encCount0][2] = {
 
 /////////////////////////////////////////// common functions ///////////////////////////////////
 
-void debug(String message)
+void debug(String &strMsg)
 {
-  Serial.println(message.c_str());
+  Serial.println(strMsg.c_str());
 }
 
 void tcaselect(uint8_t i) {
@@ -150,14 +153,7 @@ void drawInfoBank()
 void drawInfoStatus()
 {
   tcaselect(DISP_INFO);
-  if (connStatus == "off")   
-  {
-    ssd1306_printFixed(statusX,statusY,connStatus.c_str(), STYLE_ITALIC);
-  }
-  else
-  {
-    ssd1306_printFixed(statusX,statusY,connStatus.c_str(), STYLE_BOLD);
-  }
+  ssd1306_printFixed(statusX,statusY,connStatus.c_str(), (connStatus == "off") ? STYLE_ITALIC : STYLE_BOLD);
 }
 void drawInfoConfig()
 {
@@ -166,19 +162,11 @@ void drawInfoConfig()
 }
 void drawInfoDisplay()
 {
-  tcaselect(DISP_INFO);
-  
   drawInfoConfig();
 
   tcaselect(DISP_INFO);
   ssd1306_printFixed(0,bankY, "Bank: ", STYLE_NORMAL); 
-  //ssd1306_drawLine(0,18,128,18);
-  //ssd1306_drawLine(0,19,128,19);
-  tcaselect(DISP_INFO);
   ssd1306_drawLine(0,11,128,11);
-  ssd1306_drawLine(0,12,128,12);
-  ssd1306_drawLine(0,13,128,13);
-  tcaselect(DISP_INFO);
   ssd1306_printFixed(0,statusY,"Antimicro:", STYLE_NORMAL);
  
   drawInfoBank();
@@ -206,33 +194,31 @@ void drawInfoDebug(String message)
  * draw EncoderDisplays
  ***********************
  */
-void drawEncLabel(EncDisplay display, int labelIndex)
+void drawEncLabel(EncDisplay &display, int labelIndex)
 {
   int posX = 0 + 67*(labelIndex%2);;
   int posY = (labelIndex < (encNum/2)) ? 0 : 31;
   tcaselect(display.tcaNum);
   ssd1306_printFixed(posX, posY, (display.label[labelIndex+(shiftEnabled*encNum)]).c_str(), STYLE_NORMAL);
 }
-void drawEncLabels(EncDisplay display)
+void drawEncLabels(EncDisplay &display)
 {
   for (int i = 0; i<encNum;i++)
-  {    
+  { 
     drawEncLabel(display, i);
   }
 }
-void drawEncLines(EncDisplay display)
+void drawEncLines(EncDisplay &display)
 {
   tcaselect(display.tcaNum);
   ssd1306_drawLine(0,16,128,16);
   ssd1306_drawLine(64,0,64,32);
 }
-void drawEncStart(EncDisplay display)
+void drawEncStart(EncDisplay &display)
 {
   tcaselect(display.tcaNum);
   ssd1306_clearScreen();
   drawEncLines(display);
-  drawEncLines(display);
-  drawEncLabels(display);
   drawEncLabels(display);
 }
 
@@ -247,10 +233,18 @@ void drawButton(int butNo)
   int col = (butNo-(line*buttonsPerLine))*7;
   lcd.setCursor(col,line);
   lcd.print(buttons[butNo+(shiftEnabled*buttonNum)]);
+  // FIXXXME - final use lcd or oled
+  tcaselect(DISP_BUT1);
+  ssd1306_printFixed(col*6, line*8, buttons[butNo+(shiftEnabled*buttonNum)].c_str(), STYLE_NORMAL);
   //debug("bt:"+String(butNo)+" line:"+String(line)+" col:"+String(col));
 }
 void drawButtons()
 {
+  tcaselect(DISP_BUT1);
+  ssd1306_clearScreen();
+  ssd1306_drawVLine(38, 0 , 31);
+  ssd1306_drawVLine(80, 0 , 31);
+  // FIXXXME - final use lcd or oled
   lcd.clear();
   for (int i=0;i<12;i++)
   {
@@ -454,7 +448,7 @@ void serialEvent() {
 /////////////////////// Rotary Encoder functions /////////////////////
 
 // read the rotary encoder on pins X and Y, output saved in encSelect[encNo, direct]
-unsigned char readEnc(Adafruit_MCP23017 mcpX, const int *pin, unsigned char prev, int encNo) {
+unsigned char readEnc(Adafruit_MCP23017 &mcpX, const int *pin, unsigned char prev, int encNo) {
 
   unsigned char encA = mcpX.digitalRead(pin[0]);    // Read encoder pins
   unsigned char encB = mcpX.digitalRead(pin[1]);
@@ -472,7 +466,7 @@ unsigned char readEnc(Adafruit_MCP23017 mcpX, const int *pin, unsigned char prev
   return encA;
 }
 // setup the encoders as inputs. 
-unsigned char encPinsSetup(Adafruit_MCP23017 mcpX, const int *pin) {
+unsigned char encPinsSetup(Adafruit_MCP23017 &mcpX, const int *pin) {
   mcpX.pinMode(pin[0], INPUT);  // A
   mcpX.pullUp(pin[0], HIGH);    // turn on a 100K pullup internally
   mcpX.pinMode(pin[1], INPUT);  // B
@@ -487,7 +481,7 @@ void sendEncoderRotation(int encoder, int rotation)
 
 //********************** mcp button functions *******************
 // mcp button input setup
-void mcpButtonSetup(Adafruit_MCP23017 mcpX, int button)
+void mcpButtonSetup(Adafruit_MCP23017 &mcpX, int button)
 {
   mcpX.pinMode(button, INPUT);
   mcpX.pullUp(button, HIGH);
@@ -495,13 +489,9 @@ void mcpButtonSetup(Adafruit_MCP23017 mcpX, int button)
 // send button as joystickbutton
 void sendMcpButtons(uint16_t gpio)
 {
-  //debug("sendMCP: gpio=" + String(gpio));
-  Serial.print(gpio, BIN);
   for (int button=0; button<mcpButtonNum; button++) 
   {
     int buttonId = button + joystickMcp1Start + (shiftEnabled * mcpButtonNum);
-    //char stat = bitRead(gpio, button);
-    //debug("ButtonID: " + String(buttonId) + " status:" + String(stat));
     Joystick.setButton(buttonId, !bitRead(gpio, button));
   }
 }
@@ -513,36 +503,33 @@ void sendMcpButtons(uint16_t gpio)
  */
 void drawTestButton(int button, int status)
 {
-  debug("drawTest, status=" + String(status));
+  String message = "    ";
+  if (status) message = "-" + String(button) + "-";
+  for (int i=1;i<4;i++)
+  { 
+    tcaselect(i);
+    ssd1306_printFixed(30,24, message.c_str(), STYLE_NORMAL);
+  }    
   lcd.setCursor(5,3);
-  if (status)
-  {
-    lcd.print("-" + String(button) + "-");
-  }
-  else
-  {
-    lcd.print("    ");
-  }
+  lcd.print(message);  
 }
 void drawTestMcpButtons(uint16_t gpio)
 {
   //debug("sendMCP: gpio=" + String(gpio));
-  Serial.println(gpio, BIN);
+  //Serial.println(gpio, BIN);
   for (int button=0; button<mcpButtonNum; button++) 
   {
     int buttonId = button + joystickMcp1Start + (shiftEnabled * mcpButtonNum);
     int stat = !bitRead(gpio, button);
     if (stat) 
     {
-      debug("stat is 0");
       drawTestButton(buttonId, stat);
     }
-    debug("ButtonID: " + String(buttonId) + " status:" + stat);
-    //Joystick.setButton(buttonId, !bitRead(gpio, button));    
+    Joystick.setButton(buttonId, !bitRead(gpio, button));    
   }
 }
 
-void drawTestEncoder(int encoderNumber, int rotation)  // rotaion 1 = CW, 2 = CCW
+void drawTestEncoder(int encoderNumber, int rotation)  // rotation 1 = CW, 2 = CCW
 {  
   if (rotation == 1)
   {
@@ -552,11 +539,34 @@ void drawTestEncoder(int encoderNumber, int rotation)  // rotaion 1 = CW, 2 = CC
   {
     --testCounter;    
   }
+  String message = "-" + String(encoderNumber) + "- : " + String(testCounter) + "    ";
   lcd.setCursor(5,2);
-  lcd.print("-" + String(encoderNumber) + "- : " + String(testCounter) + "    ");
+  lcd.print(message);
+  for (int i=1;i<4;i++)
+  { 
+    tcaselect(i);
+    ssd1306_printFixed(30,16, message.c_str(), STYLE_NORMAL);
+  }
+  /*tcaselect(DISP_BUT1);
+  ssd1306_printFixed(30,16, message.c_str(), STYLE_NORMAL);
+  tcaselect(DISP_ENC1);
+  ssd1306_printFixed(30,16, message.c_str(), STYLE_NORMAL);
+  tcaselect(DISP_ENC2);
+  ssd1306_printFixed(30,16, message.c_str(), STYLE_NORMAL); */
 }
 
 /////////////////////// SETUP //////////////////////
+void init128x32(int tcanum)
+{
+  tcaselect(tcanum);
+  ssd1306_128x32_i2c_init();
+  ssd1306_setFixedFont(ssd1306xled_font6x8);
+  ssd1306_clearScreen();
+  ssd1306_printFixed(0,0, "Inputconsole ready!", STYLE_NORMAL);
+  ssd1306_printFixed(0,16, "Enc:", STYLE_NORMAL);
+  ssd1306_printFixed(0,24, "Key:", STYLE_NORMAL);
+}
+
 
 void setup()
 {
@@ -590,13 +600,16 @@ void setup()
   lcd.setCursor(0,3);
   lcd.print("Key: ");
 
-  tcaselect(DISP_ENC1);
+  init128x32(DISP_ENC1);
+  init128x32(DISP_ENC2);
+  init128x32(DISP_BUT1);
+  /*tcaselect(DISP_ENC1);
   ssd1306_128x32_i2c_init();
   tcaselect(DISP_ENC1);
   ssd1306_setFixedFont(ssd1306xled_font6x8);
   tcaselect(DISP_ENC1);
   ssd1306_clearScreen();
-  ssd1306_printFixed(5,5, "Inputconsole ready!", STYLE_NORMAL);
+  ssd1306_printFixed(5,5, "Inputconsole ready!", STYLE_NORMAL); 
 
   tcaselect(DISP_ENC2);
   ssd1306_128x32_i2c_init();
@@ -606,6 +619,20 @@ void setup()
   ssd1306_clearScreen();
   ssd1306_printFixed(5,5, "Inputconsole ready!", STYLE_NORMAL);
 
+  tcaselect(DISP_BUT1);
+  ssd1306_128x32_i2c_init();
+  tcaselect(DISP_BUT1);
+  ssd1306_setFixedFont(ssd1306xled_font6x8);
+  tcaselect(DISP_BUT1);
+  ssd1306_clearScreen();
+  ssd1306_printFixed(0,0, "  OK   Cancel Return", STYLE_NORMAL);
+  ssd1306_printFixed(0,8,  " Next   Prev   Enter", STYLE_NORMAL);
+  ssd1306_printFixed(0,16, "Bright  Gamma  Contr", STYLE_NORMAL);
+  ssd1306_printFixed(0,24, "Histry Select    Cut", STYLE_NORMAL);
+  ssd1306_drawVLine(38, 0 , 31);
+  ssd1306_drawVLine(80, 0 , 31); */
+
+  
   tcaselect(DISP_INFO);
   ssd1306_setFixedFont(ssd1306xled_font6x8);
   ssd1306_128x64_i2c_init();
@@ -705,4 +732,5 @@ void loop()
 
   
 }
+
 
