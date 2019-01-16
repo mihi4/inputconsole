@@ -37,7 +37,7 @@ String inputString = "";
 // each encoder display has 8 labels, first 4 are normal, 2nd 4 are shifted
 struct EncDisplay
 {
-  int tcaNum;
+  uint8_t tcaNum;
   String label[8];
 };
 
@@ -53,27 +53,38 @@ String buttons[] = {
 };
 
 // constants for display configurations
-const int statusX = 65; // xpos of antimicroc connection status 
-const int statusY = 35; // ypos
-const int bankX = 40; // xpos of bank number display
-const int bankY = 23; // ypos
-const int buttonsPerLine = 2; // number of buttons to display per line on LCD
-const int buttonNum = 8; // total number of buttons to display
-const int encNum = 4; // number of encoders to display on one OLED
+const uint8_t statusX = 65; // xpos of antimicroc connection status 
+const uint8_t statusY = 35; // ypos
+const uint8_t bankX = 40; // xpos of bank number display
+const uint8_t bankY = 23; // ypos
+const uint8_t buttonsPerLine = 2; // number of buttons to display per line on LCD
+const uint8_t buttonNum = 8; // total number of buttons to display
+const uint8_t encNum = 4; // number of encoders to display on one OLED
 
 // configuration of string length for displays
-const int buttonLength = 10;
-const int encLength = 10;
-const int configLength = 20;
-const int statusLength = 3;
+const uint8_t buttonLength = 10;
+const uint8_t encLength = 10;
+const uint8_t configLength = 20;
+const uint8_t statusLength = 3;
 
 /*
  * joystick configuration
  */
-const int joystickbuttons = 72;
-const int joystickEncoderStart = 4; // use buttons 0-4 
-const int joystickMcp1Start = 36;
-const int joystickMcp1Buttons = 12; // only 12 inputs used for buttons
+const uint8_t joystickbuttons = 90;
+/*  encoders start at 0 (Button 1)
+ *  8 encoders with 2 positions = 16 buttons, shifted +16 
+ *  so encoder positions end at 31;
+ *  8 encoder buttons are 32-39 
+ *  16 default buttons start at 40
+ *  including shifted = 71
+ *  16 second mcp buttons (tenkeys) start at 72
+ *  end at 85
+ *  
+ */
+const uint8_t joystickEncoderStart = 0; 
+const uint8_t joystickMcp1Start = 40;
+const uint8_t joystickMcp1Buttons = 16; 
+const uint8_t joystickMcp2Start = 72;
 
 Joystick_ Joystick = Joystick_(0x05, JOYSTICK_TYPE_JOYSTICK, joystickbuttons, 0, true, true, false, false, false, false, false, false, false, false, false);
 
@@ -91,7 +102,7 @@ uint16_t buttonsMcp1Previous = 0;
 /*
  * shift button configuration
  */
-const int shiftButton = 7; // hardware input pin of shift button
+const uint8_t shiftButton = 0; // hardware input pin of shift button
 boolean shiftEnabled = false;
 boolean shiftChanged = false;
 const char mcpButtonNum = 16;
@@ -101,7 +112,7 @@ const char shiftEncOffset = 16; // same for encoders
  * test mode configuration
  */
 boolean testMode=true; //after start display debug info about buttons and encoders
-int testCounter = 0; // add/remove 1 for encoders
+uint8_t testCounter = 0; // add/remove 1 for encoders
 
 /*
  * encoder configuration
@@ -109,7 +120,7 @@ int testCounter = 0; // add/remove 1 for encoders
 boolean change=false;        // goes true when a change in the encoder state is detected
 int encSelect[2] = {101, 0}; // stores the last encoder used and direction {encNo, 1=CW or 2=CCW}
 
-const int encCount0 = 2;  // number of rotary encoders
+const uint8_t encCount0 = 2;  // number of rotary encoders
 
 // arrays to store the previous value of the encoders and buttons
 unsigned char encoders0[encCount0];
@@ -518,7 +529,7 @@ void mcpButtonSetup(Adafruit_MCP23017 mcpX, int button)
 void sendMcpButtons(uint16_t gpio)
 {
   //debug("sendMCP: gpio=" + String(gpio));
-  Serial.print(gpio, BIN);
+  //Serial.print(gpio, BIN);
   for (int button=0; button<mcpButtonNum; button++) 
   {
     int buttonId = button + joystickMcp1Start + (shiftEnabled * mcpButtonNum);
