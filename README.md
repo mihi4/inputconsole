@@ -1,4 +1,4 @@
-# inputconsole
+# VideoInputconsole
 This project was created to design hard- and software similar to the available colorcorrection panels like Tangent Element or similar to control video/photography editing software (or other).
 
 ## Hardware:
